@@ -1,6 +1,9 @@
 # Bot COVID-19 Messaging API
 
 ## Setup
+É necessário que tenha `docker-compose` instalado.
+> Instruções de como instala-lo [aqui](https://docs.docker.com/compose/install/)
+
 ### 1) Adicionar credenciais da conta do Twilio no ambiente
 Você precisa de acesso ao dashboard do Twilio.
 
@@ -22,11 +25,16 @@ Vá ao Dashboard do Twilio, em `Programable SMS > Whatsapp > Sandbox` e, no camp
 http://[hash].ngrok.io/api/v1/incoming
 ```
 
+### (Opcional) Seed no banco
+Agora só falta alimentar o banco com informação base, contida na pasta `seed/`.
+Para isto, rode o comando abaixo:
+```
+make seed
+```
+
 ### 3) Rode o projeto
-Agora que o , instale as dependências e rode o projeto.
+Agora é só e rode o projeto.
 
 ```
-npm install
-
-npm start
+make up
 ```

@@ -10,6 +10,8 @@ COPY src/ /app/src
 COPY package.json /app
 COPY package-lock.json /app
 
+RUN npm i --production
+
 WORKDIR /app
 
 EXPOSE 3000

@@ -1,0 +1,9 @@
+version: '3'
+services:
+  seed:
+    image: mongo
+    command: mongoimport --host mongodb --db covid --collection Covid19 --type json --file /seed/init.json --jsonArray
+    links:
+      - mongodb
+    volumes:
+    - ./seed:/seed

@@ -5,12 +5,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./data:/data/db
-
-  mongo_seed:
-    build: ./seed
-    links:
-      - mongodb
+      - mongodata:/data/db
 
   web:
     build: .
@@ -20,3 +15,6 @@ services:
       - mongodb
     volumes:
       - ./:/app
+
+volumes:
+  mongodata:
