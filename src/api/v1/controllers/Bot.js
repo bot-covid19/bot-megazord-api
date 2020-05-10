@@ -7,7 +7,7 @@ const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = process.env;
 const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 const { MessagingResponse } = twilio.twiml;
 
-export function incoming(req, res, next) {
+export async function incoming(req, res, next) {
   const {
     To: recipient,
     From: userPhone,
@@ -16,18 +16,23 @@ export function incoming(req, res, next) {
 
   console.info(`Incoming message body: ${userMsg}`);
 
-  const outgoingMessage = handleIncomingMessage(userPhone, userMsg);
+  try {
+    const outgoingMessage = await handleIncomingMessage(userPhone, userMsg);
 
-  if (outgoingMessage) {
-    console.info(`Outgoing message body: ${outgoingMessage}`);
-  
-    const twimlMsgBuilder = new MessagingResponse();
+    if (outgoingMessage) {
+      console.info(`Outgoing message body: ${outgoingMessage}`);
 
-    twimlMsgBuilder.message(outgoingMessage);
-    const outgoingMsgXML = twimlMsgBuilder.toString();
-  
-    res.set('Content-Type', 'text/xml');
-    return res.status(200).send(outgoingMsgXML);
+      const twimlMsgBuilder = new MessagingResponse();
+
+      twimlMsgBuilder.message(outgoingMessage);
+      const outgoingMsgXML = twimlMsgBuilder.toString();
+
+      res.set('Content-Type', 'text/xml');
+      return res.status(200).send(outgoingMsgXML);
+    }
+  } catch (err) {
+    console.error(err);
+    return res.sendStatus(500);
   }
 
   console.info('No messages to be sent.');
@@ -40,21 +45,21 @@ export async function createFollowUp(req, res, next) {
     return res.status(400).json({ error: 'Field `to` is required' });
   }
 
-  const message = GREETING + ANSWER_TO_CONTINUE;
-
-  const messageInfo = await client.messages.create({
-    from: 'whatsapp:+14155238886', // sandbox phone
-    body: message,
-    to: userPhone
-  });
-
-  // add new follow up only after sending the message successfully
   try {
-    createNewFollowUp(userPhone);
+    await createNewFollowUp(userPhone);
+
+    const message = GREETING + '\n' + ANSWER_TO_CONTINUE;
+
+    const messageInfo = await client.messages.create({
+      from: 'whatsapp:+14155238886', // sandbox phone
+      body: message,
+      to: userPhone
+    });
+
+    console.info(JSON.stringify(messageInfo, null, 2));
   } catch (e) {
     return next(e);
   }
 
-  console.info(JSON.stringify(messageInfo, null, 2));
   return res.sendStatus(200);
 }

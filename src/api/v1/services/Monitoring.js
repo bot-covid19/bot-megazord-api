@@ -16,9 +16,9 @@ function isUserInputValid(input) {
  * @param {string} userMsg User's sent message
  * @returns {string} Message to be sent after handling the work flow
  */
-export function handleIncomingMessage(userPhone, userMsg) {
-  const user = userService.getUserByPhone(userPhone);
-  
+export async function handleIncomingMessage(userPhone, userMsg) {
+  const user = await userService.getUserByPhone(userPhone);
+
   // if not already present at the base, do not interact
   if (!user) return null;
 
@@ -31,10 +31,10 @@ export function handleIncomingMessage(userPhone, userMsg) {
   } else {
     if (userActiveFollowUp.status === 'OPEN_SESSION') {
       const updatedUser = userService.goToWellnessFollowUp(user, userActiveFollowUp);
-      db.index(updatedUser.phone, updatedUser);
+      await userService.updateUserByPhone(updatedUser.phone, updatedUser);
       return msgs.WELLNESS_OPTIONS;
     }
-    
+
     if (!isUserInputValid(userMsg)) {
       return msgs.INVALID_INPUT + '\n\n' + msgs[`${userActiveFollowUp.status}_OPTIONS`];
     }
@@ -49,7 +49,7 @@ export function handleIncomingMessage(userPhone, userMsg) {
         userService.goToSymptomsFollowUp(user, userActiveFollowUp);
 
       // record on db
-      db.index(updatedUser.phone, updatedUser);
+      await userService.updateUserByPhone(updatedUser.phone, updatedUser);
 
       const wellnessMsgs = {
         1: msgs.GLAD_GOT_BETTER + '\n\n' + msgs.THANKS,
@@ -67,7 +67,7 @@ export function handleIncomingMessage(userPhone, userMsg) {
       userActiveFollowUp.symptomsStatus = userService.getSymptomsStatus(userMsg);
 
       const updatedUser = userService.completeActiveFollowUp(user, userActiveFollowUp);
-      db.index(updatedUser.phone, updatedUser);
+      await userService.updateUserByPhone(updatedUser.phone, updatedUser);
       return msgs.THANKS;
     }
 
@@ -79,11 +79,11 @@ export function handleIncomingMessage(userPhone, userMsg) {
 /**
  * @param {string} userPhone
  */
-export function createNewFollowUp(userPhone) {
-  const user = userService.getUserByPhone(userPhone);
+export async function createNewFollowUp(userPhone) {
+  const user = await userService.getUserByPhone(userPhone);
 
   if (!user) throw new Error(`User ${userPhone} not found`);
 
-  const updatedUser = userService.createNewFollowUp(user);
-  db.index(user.phone, updatedUser);
+  const updatedUser = userService.addNewFollowUpToUser(user);
+  await userService.updateUserByPhone(user.phone, updatedUser);
 }

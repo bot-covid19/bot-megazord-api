@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon --exec babel-node server/server.js --require dotenv/config",
+    "start": "NODE_ENV=production node -r esm src/server/server",
+    "dev": "NODE_ENV=development nodemon --require dotenv/config -r esm src/server/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
@@ -12,14 +13,12 @@
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^8.2.0",
+    "esm": "^3.2.25",
     "express": "^4.17.1",
+    "mongodb": "^3.5.7",
     "twilio": "^3.42.1"
   },
   "devDependencies": {
-    "@babel/cli": "^7.8.4",
-    "@babel/core": "^7.9.0",
-    "@babel/node": "^7.8.7",
-    "@babel/preset-env": "^7.9.5",
     "nodemon": "^2.0.3"
   },
   "nodemonConfig": {

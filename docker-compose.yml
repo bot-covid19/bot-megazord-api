@@ -1,0 +1,22 @@
+version: '3'
+services:
+  mongodb:
+    image: mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./data:/data/db
+
+  mongo_seed:
+    build: ./seed
+    links:
+      - mongodb
+
+  web:
+    build: .
+    command: npm run dev
+    env_file: .env
+    links:
+      - mongodb
+    volumes:
+      - ./:/app

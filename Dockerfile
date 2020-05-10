@@ -1,0 +1,17 @@
+FROM node:13
+
+ARG TWILIO_ACCOUNT_SID
+ENV TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+
+ARG TWILIO_AUTH_TOKEN
+ENV TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+
+COPY src/ /app/src
+COPY package.json /app
+COPY package-lock.json /app
+
+WORKDIR /app
+
+EXPOSE 3000
+
+CMD ["npm", "start"]

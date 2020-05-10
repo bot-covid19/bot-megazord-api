@@ -1,4 +1,4 @@
-import * as db from './DB';
+import { newMongoClient, dbName } from './DB';
 
 /**
  * @typedef {Object} User
@@ -61,15 +61,32 @@ export function getSymptomsStatus(n) {
  * @returns {FollowUp} Given User's active follow up
  */
 export function getActiveFollowUp(user) {
-  return user.followUps.find(f => !f.completed);
+  return user.followUps && user.followUps.find(f => !f.completed);
 }
 
 /**
  * @param {string} userPhone
- * @returns {User} User record found on DB
+ * @returns {Promise<User>} User record found on DB
  */
-export function getUserByPhone(userPhone) {
-  return db.find(userPhone);
+export async function getUserByPhone(userPhone) {
+  const client = newMongoClient();
+  const conn = await client.connect();
+  const db = conn.db(dbName);
+  const user = await db.collection('Covid19').findOne({ phone: userPhone });
+  await conn.close();
+  return user;
+}
+
+/**
+ * @param {string} userPhone
+ * @param {User} updatedUser
+ */
+export async function updateUserByPhone(userPhone, updatedUser) {
+  const client = newMongoClient();
+  const conn = await client.connect();
+  const db = conn.db(dbName);
+  await db.collection('Covid19').replaceOne({ phone: userPhone }, updatedUser);
+  await conn.close();
 }
 
 /**
@@ -120,15 +137,15 @@ export function goToWellnessFollowUp(user, userActiveFollowUp) {
 }
 
 /**
- * @param {User} currentUser 
+ * @param {User} currentUser
  * @returns {User} User with a new follow up appended to its list
  */
-export function createNewFollowUp(currentUser) {
+export function addNewFollowUpToUser(currentUser) {
   const activeFollowUp = getActiveFollowUp(currentUser);
 
   const user = (activeFollowUp) ?
     completeActiveFollowUp(currentUser, activeFollowUp) : currentUser;
-  
+
   return {
     ...user,
     followUps: [...user.followUps, newFollowUp()],
