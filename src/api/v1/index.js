@@ -4,8 +4,9 @@ import * as Bot from './controllers/Bot';
 
 const v1Router = Router();
 
-// TODO: Doc these endpoints
-v1Router.post('/incoming', Bot.incoming);
+// v1Router.post('/trigger', Bot.triggerBulkFollowUp);
 v1Router.post('/follow-up', Bot.createFollowUp);
+v1Router.post('/wellness', Bot.wellnessUpdate);
+v1Router.post('/symptoms', Bot.symptomsUpdate);
 
 export default v1Router;
