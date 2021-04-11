@@ -1,4 +1,5 @@
 import { newMongoClient, dbName } from './DB';
+import { endActiveExecution } from './Monitoring';
 
 /**
  * @typedef {Object} User
@@ -17,12 +18,14 @@ import { newMongoClient, dbName } from './DB';
  * @property {string} [symptomsStatus]
  * @property {string} createdAt Date in ISO format
  * @property {string} updatedAt Date in ISO format
+ * @property {string} executionSid Reference to the Twilio Execution
  */
 
 /**
-  @returns {FollowUp}
+ * @param {string} executionSid
+ * @returns {FollowUp}
  */
-function newFollowUp() {
+function newFollowUp(executionSid) {
   const now = new Date().toISOString();
 
   return {
@@ -30,6 +33,7 @@ function newFollowUp() {
     completed: false,
     createdAt: now,
     updatedAt: now,
+    executionSid,
   };
 }
 
@@ -95,17 +99,21 @@ export async function updateUserByPhone(userPhone, updatedUser) {
  * @returns {User} Updated User
  */
 export function updateUserActiveFollowUp(user, updatedFollowUp) {
+  const now = new Date().toISOString();
+
   const { followUps: userFollowUps } = user;
 
   const activeFollowUpIndex = userFollowUps.findIndex(f => !f.completed);
   const updatedFollowUps = userFollowUps.map((f, i) =>
-    (i === activeFollowUpIndex) ? updatedFollowUp : f
+    (i === activeFollowUpIndex) ?
+      { ...updatedFollowUp, updatedAt: now } :
+      f
   );
 
   const updatedUser = {
     ...user,
     followUps: updatedFollowUps,
-    updatedAt: new Date().toISOString(),
+    updatedAt: now,
   };
 
   return updatedUser;
@@ -117,8 +125,12 @@ export function updateUserActiveFollowUp(user, updatedFollowUp) {
  * @returns {User} Updated User
  */
 export function completeActiveFollowUp(user, userActiveFollowUp) {
-  userActiveFollowUp.completed = true;
-  return updateUserActiveFollowUp(user, userActiveFollowUp);
+  const updatedFollowUp = {
+    ...userActiveFollowUp,
+    completed: true,
+  };
+
+  return updateUserActiveFollowUp(user, updatedFollowUp);
 }
 
 /**
@@ -127,27 +139,44 @@ export function completeActiveFollowUp(user, userActiveFollowUp) {
  * @returns {User} Updated User
  */
 export function goToSymptomsFollowUp(user, userActiveFollowUp) {
-  userActiveFollowUp.status = 'SYMPTOMS';
-  return updateUserActiveFollowUp(user, userActiveFollowUp);
+  const updatedFollowUp = {
+    ...userActiveFollowUp,
+    status: 'SYMPTOMS'
+  };
+
+  return updateUserActiveFollowUp(user, updatedFollowUp);
 }
 
+/**
+ * @param {User} user
+ * @param {FollowUp} userActiveFollowUp
+ * @returns {User} Updated User
+ */
 export function goToWellnessFollowUp(user, userActiveFollowUp) {
   userActiveFollowUp.status = 'WELLNESS';
   return updateUserActiveFollowUp(user, userActiveFollowUp);
 }
 
 /**
- * @param {User} currentUser
+ * @param {string} userPhone
+ * @param {string} executionSid
  * @returns {User} User with a new follow up appended to its list
  */
-export function addNewFollowUpToUser(currentUser) {
-  const activeFollowUp = getActiveFollowUp(currentUser);
-
-  const user = (activeFollowUp) ?
-    completeActiveFollowUp(currentUser, activeFollowUp) : currentUser;
+export async function addNewFollowUpToUser(userPhone, executionSid) {
+  const user = await getUserByPhone(userPhone);
+  if (!user) throw new Error(`User ${userPhone} not found`);
 
   return {
     ...user,
-    followUps: [...user.followUps, newFollowUp()],
+    followUps: [...user.followUps, newFollowUp(executionSid)],
   };
+}
+
+/**
+ * @param {string} userPhone
+ */
+export async function endActiveFollowUpExecution(userPhone) {
+  const user = await getUserByPhone(userPhone);
+  const activeFollowUp = getActiveFollowUp(user);
+  return activeFollowUp && endActiveExecution(activeFollowUp.executionSid);
 }

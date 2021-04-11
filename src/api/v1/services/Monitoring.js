@@ -1,6 +1,14 @@
-import * as db from './DB';
 import * as msgs from './Messages';
 import * as userService from './User';
+
+import twilio from 'twilio';
+
+const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN } = process.env;
+
+const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+
+const flowId = 'FWb03f53b1bd3f913752f113086ecf0143';
+// const { MessagingResponse } = twilio.twiml;
 
 /**
  * @param {string} input
@@ -14,7 +22,7 @@ function isUserInputValid(input) {
 /**
  * @param {string} userPhone Phone of the user who sent the message
  * @param {string} userMsg User's sent message
- * @returns {string} Message to be sent after handling the work flow
+ * @returns {Promise<string>} Message to be sent after handling the work flow
  */
 export async function handleIncomingMessage(userPhone, userMsg) {
   const user = await userService.getUserByPhone(userPhone);
@@ -40,16 +48,7 @@ export async function handleIncomingMessage(userPhone, userMsg) {
     }
 
     if (userActiveFollowUp.status === 'WELLNESS') {
-      // sets flow info
-      userActiveFollowUp.wellnessStatus = userService.getWellnessStatus(userMsg);
 
-      // only option 4 continues the follow up flow... the rest completes it
-      const updatedUser = (userMsg !== '4') ?
-        userService.completeActiveFollowUp(user, userActiveFollowUp) :
-        userService.goToSymptomsFollowUp(user, userActiveFollowUp);
-
-      // record on db
-      await userService.updateUserByPhone(updatedUser.phone, updatedUser);
 
       const wellnessMsgs = {
         1: msgs.GLAD_GOT_BETTER + '\n\n' + msgs.THANKS,
@@ -63,11 +62,7 @@ export async function handleIncomingMessage(userPhone, userMsg) {
 
 
     if (userActiveFollowUp.status === 'SYMPTOMS') {
-      // sets flow info
-      userActiveFollowUp.symptomsStatus = userService.getSymptomsStatus(userMsg);
-
-      const updatedUser = userService.completeActiveFollowUp(user, userActiveFollowUp);
-      await userService.updateUserByPhone(updatedUser.phone, updatedUser);
+      await userService.updateSymptomsStatus(user, userActiveFollowUp, userMsg);
       return msgs.THANKS;
     }
 
@@ -78,12 +73,83 @@ export async function handleIncomingMessage(userPhone, userMsg) {
 
 /**
  * @param {string} userPhone
+ * @param {string} userAnswer
  */
-export async function createNewFollowUp(userPhone) {
+export async function updateWellnessStatus(userPhone, userAnswer) {
   const user = await userService.getUserByPhone(userPhone);
+  if (!user) throw new Error('User not found');
 
-  if (!user) throw new Error(`User ${userPhone} not found`);
+  const activeFollowUp = userService.getActiveFollowUp(user);
 
-  const updatedUser = userService.addNewFollowUpToUser(user);
-  await userService.updateUserByPhone(user.phone, updatedUser);
+  const updatedFollowUp = {
+    ...activeFollowUp,
+    wellnessStatus: userService.getWellnessStatus(userAnswer),
+  };
+
+  const updatedUser = (userAnswer !== '4') ? // 4 - "me sinto pior"
+    userService.completeActiveFollowUp(user, updatedFollowUp) :
+    userService.goToSymptomsFollowUp(user, updatedFollowUp);
+
+  return userService.updateUserByPhone(updatedUser.phone, updatedUser);
+}
+
+/**
+ * @param {string} userPhone
+ * @param {string} userAnswer
+ */
+export async function updateSymptomsStatus(userPhone, userAnswer) {
+  const user = await userService.getUserByPhone(userPhone);
+  if (!user) throw new Error('User not found');
+
+  const activeFollowUp = userService.getActiveFollowUp(user);
+
+  const updatedFollowUp = {
+    ...activeFollowUp,
+    symptomsStatus: userService.getSymptomsStatus(userAnswer),
+  };
+
+  const updatedUser = userService.completeActiveFollowUp(user, updatedFollowUp);
+  return userService.updateUserByPhone(updatedUser.phone, updatedUser);
+}
+
+// export async function triggerBulkFollowUp() {
+//   const users = await userService.getElectiveUsers();
+//   const executionPromises = users.map(triggerNewFollowUp);
+//   return Promise.all(executionPromises);
+// }
+
+/**
+ * @param {string} userPhone
+ * @param {string} executionSid
+ */
+export async function createNewFollowUp(userPhone, executionSid) {
+  const updatedUser = await userService.addNewFollowUpToUser(userPhone, executionSid);
+  return userService.updateUserByPhone(userPhone, updatedUser);
+}
+
+/**
+ * @param {string} userPhone
+ */
+export async function triggerNewFollowUp(userPhone) {
+  await userService.endActiveFollowUpExecution(userPhone);
+
+  return client.studio.flows(flowId)
+    .executions
+    .create({ to: userPhone, from: 'whatsapp:+14155238886' })
+    .then(execution => {
+      console.log(execution);
+      return createNewFollowUp(userPhone, execution.sid)
+    });
+}
+
+/**
+ * @param {string} executionSid
+ * @returns {Promise}
+ */
+export function endActiveExecution(executionSid) {
+  console.log('End active execution', executionSid);
+  return client.studio.flows(flowId)
+    .executions(executionSid)
+    .update({ status: 'ended' })
+    .then(execution => console.log(execution.sid));
 }
