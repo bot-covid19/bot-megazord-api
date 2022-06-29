@@ -16,7 +16,7 @@
     "esm": "^3.2.25",
     "express": "^4.17.1",
     "mongodb": "^3.5.9",
-    "twilio": "^3.48.0"
+    "twilio": "^3.78.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.4"
